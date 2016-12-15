@@ -59,6 +59,7 @@ bool kvmppc_has_cap_htm(void);
 int kvmppc_enable_hwrng(void);
 int kvmppc_put_books_sregs(PowerPCCPU *cpu);
 PowerPCCPUClass *kvm_ppc_get_host_cpu_class(void);
+void kvmppc_check_papr_resize_hpt(Error **errp);
 
 #else
 
@@ -270,6 +271,10 @@ static inline PowerPCCPUClass *kvm_ppc_get_host_cpu_class(void)
     return NULL;
 }
 
+static inline void kvmppc_check_papr_resize_hpt(Error **errp)
+{
+    return;
+}
 #endif
 
 #ifndef CONFIG_KVM
