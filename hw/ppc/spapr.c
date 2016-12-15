@@ -93,8 +93,6 @@
 
 #define PHANDLE_XICP            0x00001111
 
-#define HTAB_SIZE(spapr)        (1ULL << ((spapr)->htab_shift))
-
 static XICSState *try_create_xics(const char *type, int nr_servers,
                                   int nr_irqs, Error **errp)
 {
@@ -1055,7 +1053,7 @@ static void close_htab_fd(sPAPRMachineState *spapr)
     spapr->htab_fd = -1;
 }
 
-static int spapr_hpt_shift_for_ramsize(uint64_t ramsize)
+int spapr_hpt_shift_for_ramsize(uint64_t ramsize)
 {
     int shift;
 
