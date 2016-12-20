@@ -60,6 +60,8 @@ int kvmppc_enable_hwrng(void);
 int kvmppc_put_books_sregs(PowerPCCPU *cpu);
 PowerPCCPUClass *kvm_ppc_get_host_cpu_class(void);
 void kvmppc_check_papr_resize_hpt(Error **errp);
+int kvmppc_resize_hpt_prepare(PowerPCCPU *cpu, target_ulong flags, int shift);
+int kvmppc_resize_hpt_commit(PowerPCCPU *cpu, target_ulong flags, int shift);
 
 #else
 
@@ -274,6 +276,18 @@ static inline PowerPCCPUClass *kvm_ppc_get_host_cpu_class(void)
 static inline void kvmppc_check_papr_resize_hpt(Error **errp)
 {
     return;
+}
+
+static inline int kvmppc_resize_hpt_prepare(PowerPCCPU *cpu,
+                                            target_ulong flags, int shift)
+{
+    return -ENOSYS;
+}
+
+static inline int kvmppc_resize_hpt_commit(PowerPCCPU *cpu,
+                                           target_ulong flags, int shift)
+{
+    return -ENOSYS;
 }
 #endif
 

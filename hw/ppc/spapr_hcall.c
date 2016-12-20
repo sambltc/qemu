@@ -460,6 +460,44 @@ static ram_addr_t get_current_ram_size(void)
     return size;
 }
 
+/* Convert a return code from the KVM ioctl()s implementing resize HPT
+ * into a PAPR hypercall return code */
+static target_ulong resize_hpt_convert_rc(int ret)
+{
+    if (ret >= 100000) {
+        return H_LONG_BUSY_ORDER_100_SEC;
+    } else if (ret >= 10000) {
+        return H_LONG_BUSY_ORDER_10_SEC;
+    } else if (ret >= 1000) {
+        return H_LONG_BUSY_ORDER_1_SEC;
+    } else if (ret >= 100) {
+        return H_LONG_BUSY_ORDER_100_MSEC;
+    } else if (ret >= 10) {
+        return H_LONG_BUSY_ORDER_10_MSEC;
+    } else if (ret > 0) {
+        return H_LONG_BUSY_ORDER_1_MSEC;
+    }
+
+    switch (ret) {
+    case 0:
+        return H_SUCCESS;
+    case -EPERM:
+        return H_AUTHORITY;
+    case -EINVAL:
+        return H_PARAMETER;
+    case -ENXIO:
+        return H_CLOSED;
+    case -ENOSPC:
+        return H_PTEG_FULL;
+    case -EBUSY:
+        return H_BUSY;
+    case -ENOMEM:
+        return H_NO_MEM;
+    default:
+        return H_HARDWARE;
+    }
+}
+
 static target_ulong h_resize_hpt_prepare(PowerPCCPU *cpu,
                                          sPAPRMachineState *spapr,
                                          target_ulong opcode,
@@ -468,6 +506,7 @@ static target_ulong h_resize_hpt_prepare(PowerPCCPU *cpu,
     target_ulong flags = args[0];
     int shift = args[1];
     sPAPRPendingHPT *pending = spapr->pending_hpt;
+    int rc;
 
     if (spapr->resize_hpt == SPAPR_RESIZE_HPT_DISABLED) {
         return H_AUTHORITY;
@@ -489,6 +528,11 @@ static target_ulong h_resize_hpt_prepare(PowerPCCPU *cpu,
     if (shift > (spapr_hpt_shift_for_ramsize(get_current_ram_size()) + 1)) {
         assert(!pending || pending->shift != shift);
         return H_RESOURCE;
+    }
+
+    rc = kvmppc_resize_hpt_prepare(cpu, flags, shift);
+    if (rc != -ENOSYS) {
+        return resize_hpt_convert_rc(rc);
     }
 
     if (pending) {
@@ -695,6 +739,11 @@ static target_ulong h_resize_hpt_commit(PowerPCCPU *cpu,
     }
 
     trace_spapr_h_resize_hpt_commit(flags, shift);
+
+    rc = kvmppc_resize_hpt_commit(cpu, flags, shift);
+    if (rc != -ENOSYS) {
+        return resize_hpt_convert_rc(rc);
+    }
 
     if (flags != 0) {
         return H_PARAMETER;
