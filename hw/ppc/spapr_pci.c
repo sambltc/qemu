@@ -1053,6 +1053,10 @@ static int spapr_populate_pci_child_dt(PCIDevice *dev, void *fdt, int offset,
     _FDT(fdt_setprop(fdt, offset, "assigned-addresses",
                      (uint8_t *)rp.assigned, rp.assigned_len));
 
+    if (sphb->pcie && pci_is_express(dev)) {
+        _FDT(fdt_setprop_cell(fdt, offset, "ibm,pci-config-space-type", 0x1));
+    }
+
     return 0;
 }
 
@@ -1434,7 +1438,8 @@ static void spapr_phb_realize(DeviceState *dev, Error **errp)
     bus = pci_register_bus(dev, NULL,
                            pci_spapr_set_irq, pci_spapr_map_irq, sphb,
                            &sphb->memspace, &sphb->iospace,
-                           PCI_DEVFN(0, 0), PCI_NUM_PINS, TYPE_PCI_BUS);
+                           PCI_DEVFN(0, 0), PCI_NUM_PINS,
+                           sphb->pcie ? TYPE_PCIE_BUS : TYPE_PCI_BUS);
     phb->bus = bus;
     qbus_set_hotplug_handler(BUS(phb->bus), DEVICE(sphb), NULL);
 
@@ -1592,6 +1597,7 @@ static Property spapr_phb_properties[] = {
     DEFINE_PROP_UINT32("numa_node", sPAPRPHBState, numa_node, -1),
     DEFINE_PROP_BOOL("pre-2.8-migration", sPAPRPHBState,
                      pre_2_8_migration, false),
+    DEFINE_PROP_BOOL("pcie", sPAPRPHBState, pcie, false),
     DEFINE_PROP_END_OF_LIST(),
 };
 
