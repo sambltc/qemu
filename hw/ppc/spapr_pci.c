@@ -1313,6 +1313,7 @@ static void spapr_phb_realize(DeviceState *dev, Error **errp)
     sPAPRTCETable *tcet;
     const unsigned windows_supported =
         sphb->ddw_enabled ? SPAPR_PCI_DMA_MAX_WINDOWS : 1;
+    const char *qbusname = NULL;
 
     if (sphb->index != (uint32_t)-1) {
         sPAPRMachineClass *smc = SPAPR_MACHINE_GET_CLASS(spapr);
@@ -1435,7 +1436,11 @@ static void spapr_phb_realize(DeviceState *dev, Error **errp)
     memory_region_add_subregion(get_system_memory(), sphb->io_win_addr,
                                 &sphb->iowindow);
 
-    bus = pci_register_bus(dev, NULL,
+    if (DEVICE(sphb)->id && *(DEVICE(sphb)->id)) {
+        qbusname = DEVICE(sphb)->id;
+    }
+
+    bus = pci_register_bus(dev, qbusname,
                            pci_spapr_set_irq, pci_spapr_map_irq, sphb,
                            &sphb->memspace, &sphb->iospace,
                            PCI_DEVFN(0, 0), PCI_NUM_PINS,
