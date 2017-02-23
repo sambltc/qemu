@@ -1050,6 +1050,60 @@ static void close_htab_fd(sPAPRMachineState *spapr)
     spapr->htab_fd = -1;
 }
 
+static hwaddr spapr_hpt_mask(PPCVirtualHypervisor *vhyp)
+{
+    sPAPRMachineState *spapr = SPAPR_MACHINE(vhyp);
+
+    return HTAB_SIZE(spapr) / HASH_PTEG_SIZE_64 - 1;
+}
+
+static const ppc_hash_pte64_t *spapr_map_hptes(PPCVirtualHypervisor *vhyp,
+                                                hwaddr ptex, int n)
+{
+    sPAPRMachineState *spapr = SPAPR_MACHINE(vhyp);
+    hwaddr pte_offset = ptex * HASH_PTE_SIZE_64;
+
+    if (!spapr->htab) {
+        /*
+         * HTAB is controlled by KVM. Fetch the PTEG into a new buffer.
+         */
+        return kvmppc_map_hptes(ptex, n);
+    }
+
+    /*
+     * HTAB is controlled by QEMU. Just point to the internally
+     * accessible PTEG.
+     */
+    return (const ppc_hash_pte64_t *)(spapr->htab + pte_offset);
+}
+
+static void spapr_unmap_hptes(PPCVirtualHypervisor *vhyp,
+                              const ppc_hash_pte64_t *hptes,
+                              hwaddr ptex, int n)
+{
+    sPAPRMachineState *spapr = SPAPR_MACHINE(vhyp);
+
+    if (!spapr->htab) {
+        kvmppc_unmap_hptes(hptes, ptex, n);
+    }
+
+    /* Nothing to do for qemu managed HPT */
+}
+
+static void spapr_store_hpte(PPCVirtualHypervisor *vhyp, hwaddr ptex,
+                             uint64_t pte0, uint64_t pte1)
+{
+    sPAPRMachineState *spapr = SPAPR_MACHINE(vhyp);
+    hwaddr offset = ptex * HASH_PTE_SIZE_64;
+
+    if (!spapr->htab) {
+        kvmppc_hash64_write_pte(ptex, pte0, pte1);
+    } else {
+        stq_p(spapr->htab + offset, pte0);
+        stq_p(spapr->htab + offset + HASH_PTE_SIZE_64 / 2, pte1);
+    }
+}
+
 static int spapr_hpt_shift_for_ramsize(uint64_t ramsize)
 {
     int shift;
@@ -2910,6 +2964,10 @@ static void spapr_machine_class_init(ObjectClass *oc, void *data)
     nc->nmi_monitor_handler = spapr_nmi;
     smc->phb_placement = spapr_phb_placement;
     vhc->hypercall = emulate_spapr_hypercall;
+    vhc->hpt_mask = spapr_hpt_mask;
+    vhc->map_hptes = spapr_map_hptes;
+    vhc->unmap_hptes = spapr_unmap_hptes;
+    vhc->store_hpte = spapr_store_hpte;
 }
 
 static const TypeInfo spapr_machine_info = {
