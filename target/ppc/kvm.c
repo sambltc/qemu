@@ -2601,17 +2601,17 @@ struct kvm_get_htab_buf {
     /*
      * We require one extra byte for read
      */
-    target_ulong hpte[(HPTES_PER_GROUP * 2) + 1];
+    ppc_hash_pte64_t hpte[HPTES_PER_GROUP];
 };
 
-uint64_t kvmppc_hash64_read_pteg(PowerPCCPU *cpu, target_ulong pte_index)
+const ppc_hash_pte64_t *kvmppc_map_hptes(hwaddr ptex, int n)
 {
     int htab_fd;
     struct kvm_get_htab_fd ghf;
-    struct kvm_get_htab_buf  *hpte_buf;
+    struct kvm_get_htab_buf *hpte_buf;
 
     ghf.flags = 0;
-    ghf.start_index = pte_index;
+    ghf.start_index = ptex;
     htab_fd = kvm_vm_ioctl(kvm_state, KVM_PPC_GET_HTAB_FD, &ghf);
     if (htab_fd < 0) {
         goto error_out;
@@ -2626,7 +2626,7 @@ uint64_t kvmppc_hash64_read_pteg(PowerPCCPU *cpu, target_ulong pte_index)
     }
 
     close(htab_fd);
-    return (uint64_t)(uintptr_t) hpte_buf->hpte;
+    return hpte_buf->hpte;
 
 out_close:
     g_free(hpte_buf);
@@ -2635,18 +2635,15 @@ error_out:
     return 0;
 }
 
-void kvmppc_hash64_free_pteg(uint64_t token)
+void kvmppc_unmap_hptes(const ppc_hash_pte64_t *hptes, hwaddr ptex, int n)
 {
     struct kvm_get_htab_buf *htab_buf;
 
-    htab_buf = container_of((void *)(uintptr_t) token, struct kvm_get_htab_buf,
-                            hpte);
+    htab_buf = container_of((void *)hptes, struct kvm_get_htab_buf, hpte);
     g_free(htab_buf);
-    return;
 }
 
-void kvmppc_hash64_write_pte(CPUPPCState *env, target_ulong pte_index,
-                             target_ulong pte0, target_ulong pte1)
+void kvmppc_hash64_write_pte(hwaddr ptex, uint64_t pte0, uint64_t pte1)
 {
     int htab_fd;
     struct kvm_get_htab_fd ghf;
@@ -2661,9 +2658,9 @@ void kvmppc_hash64_write_pte(CPUPPCState *env, target_ulong pte_index,
 
     hpte_buf.header.n_valid = 1;
     hpte_buf.header.n_invalid = 0;
-    hpte_buf.header.index = pte_index;
-    hpte_buf.hpte[0] = pte0;
-    hpte_buf.hpte[1] = pte1;
+    hpte_buf.header.index = ptex;
+    hpte_buf.hpte[0].pte0 = pte0;
+    hpte_buf.hpte[0].pte1 = pte1;
     /*
      * Write the hpte entry.
      * CAUTION: write() has the warn_unused_result attribute. Hence we

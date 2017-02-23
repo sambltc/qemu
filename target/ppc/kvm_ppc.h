@@ -41,6 +41,10 @@ void *kvmppc_create_spapr_tce(uint32_t liobn, uint32_t window_size, int *pfd,
 int kvmppc_remove_spapr_tce(void *table, int pfd, uint32_t window_size);
 int kvmppc_reset_htab(int shift_hint);
 uint64_t kvmppc_rma_size(uint64_t current_size, unsigned int hash_shift);
+const ppc_hash_pte64_t *kvmppc_map_hptes(hwaddr ptex, int n);
+void kvmppc_unmap_hptes(const ppc_hash_pte64_t *hptes, hwaddr ptex, int n);
+
+void kvmppc_hash64_write_pte(hwaddr ptex, uint64_t pte0, uint64_t pte1);
 #endif /* !CONFIG_USER_ONLY */
 bool kvmppc_has_cap_epr(void);
 int kvmppc_define_rtas_kernel_token(uint32_t token, const char *function);
@@ -49,11 +53,6 @@ int kvmppc_get_htab_fd(bool write);
 int kvmppc_save_htab(QEMUFile *f, int fd, size_t bufsize, int64_t max_ns);
 int kvmppc_load_htab_chunk(QEMUFile *f, int fd, uint32_t index,
                            uint16_t n_valid, uint16_t n_invalid);
-uint64_t kvmppc_hash64_read_pteg(PowerPCCPU *cpu, target_ulong pte_index);
-void kvmppc_hash64_free_pteg(uint64_t token);
-
-void kvmppc_hash64_write_pte(CPUPPCState *env, target_ulong pte_index,
-                             target_ulong pte0, target_ulong pte1);
 bool kvmppc_has_cap_fixup_hcalls(void);
 bool kvmppc_has_cap_htm(void);
 int kvmppc_enable_hwrng(void);
@@ -199,6 +198,22 @@ static inline bool kvmppc_is_mem_backend_page_size_ok(char *obj_path)
     return true;
 }
 
+static inline const ppc_hash_pte64_t *kvmppc_map_hptes(hwaddr ptex, int n)
+{
+    abort();
+}
+
+static inline void kvmppc_unmap_hptes(const ppc_hash_pte64_t *hptes,
+                                      hwaddr ptex, int n)
+{
+    abort();
+}
+
+static inline void kvmppc_hash64_write_pte(hwaddr ptex,
+                                           uint64_t pte0, uint64_t pte1)
+{
+    abort();
+}
 #endif /* !CONFIG_USER_ONLY */
 
 static inline bool kvmppc_has_cap_epr(void)
@@ -230,24 +245,6 @@ static inline int kvmppc_save_htab(QEMUFile *f, int fd, size_t bufsize,
 
 static inline int kvmppc_load_htab_chunk(QEMUFile *f, int fd, uint32_t index,
                                          uint16_t n_valid, uint16_t n_invalid)
-{
-    abort();
-}
-
-static inline uint64_t kvmppc_hash64_read_pteg(PowerPCCPU *cpu,
-                                               target_ulong pte_index)
-{
-    abort();
-}
-
-static inline void kvmppc_hash64_free_pteg(uint64_t token)
-{
-    abort();
-}
-
-static inline void kvmppc_hash64_write_pte(CPUPPCState *env,
-                                           target_ulong pte_index,
-                                           target_ulong pte0, target_ulong pte1)
 {
     abort();
 }
